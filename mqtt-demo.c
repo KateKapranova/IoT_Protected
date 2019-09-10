@@ -119,7 +119,7 @@ static uint8_t connect_attempt;
 /*---------------------------------------------------------------------------*/
 /* Various states */
 static uint8_t state;
-static uint8_t counter;
+static uint8_t counter;   //introduced state
 #define STATE_INIT            0
 #define STATE_REGISTERED      1
 #define STATE_CONNECTING      2
@@ -204,6 +204,8 @@ static char client_id[BUFFER_SIZE];
 #define APP_BUFFER_SIZE 8192
 static struct mqtt_connection conn;
 static char app_buffer[APP_BUFFER_SIZE];
+static char button_ON[3]="ON";
+static char button_OFF[4]="OFF";
 /*---------------------------------------------------------------------------*/
 #define QUICKSTART "quickstart"
 /*---------------------------------------------------------------------------*/
@@ -507,7 +509,7 @@ publish(void)  //called from state_machine()
 
  
   mqtt_publish(&conn, NULL, SENSOR_BRIGHT, (uint8_t *)app_buffer, //SENSOR_BRIGHT SENSOR_TEMP SENSOR_VOLT
-               strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_ON); //originally retain was ON
+               strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF); //originally retain was ON
   
   DBG("APP - Publish!\n");
 }
@@ -536,7 +538,7 @@ publish_temp(void)  //called from state_machine()
 
 
   mqtt_publish(&conn, NULL, SENSOR_TEMP, (uint8_t *)app_buffer,  
-               strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_ON);
+               strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
 }
 
 
@@ -562,9 +564,15 @@ publish_voltage(void)  //called from state_machine()
 
 
   mqtt_publish(&conn, NULL, SENSOR_VOLT, (uint8_t *)app_buffer,  
-               strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_ON);
+               strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
 }
 
+static void publish_select_button(void){
+   mqtt_publish(&conn, NULL, SENSOR_SELECT_BUTTON, (uint8_t *)button_ON,  
+               strlen(button_ON), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
+	
+     
+}
 
 /*---------------------------------------------------------------------------*/
 static void
@@ -846,6 +854,10 @@ PROCESS_THREAD(mqtt_demo_process, ev, data)
         connect_attempt = 1;
         state = STATE_REGISTERED;
       }
+    }
+    //binding the response from buttons
+    if (ev == sensors_event && data == &button_select_sensor){
+       publish_select_button();       
     }
 
     if((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) ||
