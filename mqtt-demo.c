@@ -64,13 +64,15 @@
 
 #include <string.h>
 
+
+
+
 #define GET_VALUE_LIGHT (als_sensor.value(0))
 
 //value function takes an int input (0 means raw temp value and 1 means converted)
 #define GET_TEMPERATURE (cc2538_temp_sensor.value(1)) 
 
 #define GET_VOLTAGE (vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED)) 
-
 
 
 /*---------------------------------------------------------------------------*/
@@ -120,6 +122,7 @@ static uint8_t connect_attempt;
 /* Various states */
 static uint8_t state;
 static uint8_t counter;   //introduced state
+static uint8_t select_button_counter; //introduced counter for select button
 #define STATE_INIT            0
 #define STATE_REGISTERED      1
 #define STATE_CONNECTING      2
@@ -204,8 +207,10 @@ static char client_id[BUFFER_SIZE];
 #define APP_BUFFER_SIZE 8192
 static struct mqtt_connection conn;
 static char app_buffer[APP_BUFFER_SIZE];
-static char button_ON[3]="ON";
-static char button_OFF[4]="OFF";
+
+static char *BUTTON_PAYLOAD_ON = "ON";
+static char *BUTTON_PAYLOAD_OFF = "OFF";
+
 /*---------------------------------------------------------------------------*/
 #define QUICKSTART "quickstart"
 /*---------------------------------------------------------------------------*/
@@ -425,7 +430,6 @@ update_config(void)
     state = STATE_CONFIG_ERROR;
     return;
   }
-
   if(construct_pub_topic() == 0) {
     // Fatal error. Topic larger than the buffer 
     state = STATE_CONFIG_ERROR;
@@ -567,12 +571,24 @@ publish_voltage(void)  //called from state_machine()
                strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
 }
 
+
 static void publish_select_button(void){
-   mqtt_publish(&conn, NULL, SENSOR_SELECT_BUTTON, (uint8_t *)button_ON,  
-               strlen(button_ON), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
-	
+   if (select_button_counter == 0){
+     mqtt_publish(&conn, NULL, SENSOR_SELECT_BUTTON, (uint8_t *)BUTTON_PAYLOAD_ON,  
+               strlen(BUTTON_PAYLOAD_ON), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
+     select_button_counter = 1;
+   }
+   else if (select_button_counter == 1){
+     mqtt_publish(&conn, NULL, SENSOR_SELECT_BUTTON, (uint8_t *)BUTTON_PAYLOAD_OFF,  
+               strlen(BUTTON_PAYLOAD_OFF), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
+     select_button_counter = 0;
+   }
+   else {
+     select_button_counter=0;
+   }
      
 }
+
 
 /*---------------------------------------------------------------------------*/
 static void
@@ -843,6 +859,7 @@ PROCESS_THREAD(mqtt_demo_process, ev, data)
   uip_icmp6_echo_reply_callback_add(&echo_reply_notification,
                                     echo_reply_handler);
   etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
+  
 
   /* Main loop */
   while(1) {
@@ -856,9 +873,11 @@ PROCESS_THREAD(mqtt_demo_process, ev, data)
       }
     }
     //binding the response from buttons
+    //select button
     if (ev == sensors_event && data == &button_select_sensor){
        publish_select_button();       
     }
+    
 
     if((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) ||
        ev == PROCESS_EVENT_POLL ||
