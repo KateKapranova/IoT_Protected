@@ -123,11 +123,6 @@ static uint8_t connect_attempt;
 static uint8_t state;
 static uint8_t counter;   //introduced state
 static uint8_t select_button_counter; //introduced counter for select button
-static uint8_t temp_observation_counter=0;
-static uint8_t als_observation_counter=0;
-static uint8_t volt_observation_counter=0;
-
-
 #define STATE_INIT            0
 #define STATE_REGISTERED      1
 #define STATE_CONNECTING      2
@@ -213,14 +208,8 @@ static char client_id[BUFFER_SIZE];
 static struct mqtt_connection conn;
 static char app_buffer[APP_BUFFER_SIZE];
 
-static uint8_t temp_sensor_value;
-static uint8_t als_sensor_value;
-static uint8_t voltage_sensor_value;
-
 static char *BUTTON_PAYLOAD_ON = "ON";
 static char *BUTTON_PAYLOAD_OFF = "OFF";
-
-static char *SSN_SENSOR_BUFFER="2019-09-23 roomPHPH demoObservationPHPH measuredResultPHPH";
 
 /*---------------------------------------------------------------------------*/
 #define QUICKSTART "quickstart"
@@ -241,45 +230,6 @@ static mqtt_client_config_t conf;
 static char sent_config = 0;
 /*---------------------------------------------------------------------------*/
 PROCESS(mqtt_demo_process, "MQTT Demo");
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*function to replace substring in a string (used for ssn ontologies)*/
-char * stringReplace(char *search, char *replace, char *string) {
-	char *tempString, *searchStart;
-	int len=0;
-
-
-	// preuefe ob Such-String vorhanden ist
-	searchStart = strstr(string, search);
-	if(searchStart == NULL) {
-		return string;
-	}
-
-	// Speicher reservieren
-	tempString = (char*) malloc(strlen(string) * sizeof(char));
-	if(tempString == NULL) {
-		return NULL;
-	}
-
-	// temporaere Kopie anlegen
-	strcpy(tempString, string);
-
-	// ersten Abschnitt in String setzen
-	len = searchStart - string;
-	string[len] = '\0';
-
-	// zweiten Abschnitt anhaengen
-	strcat(string, replace);
-
-	// dritten Abschnitt anhaengen
-	len += strlen(search);
-	strcat(string, (char*)tempString+len);
-
-	// Speicher freigeben
-	free(tempString);
-	
-	return string;
-}
 /*---------------------------------------------------------------------------*/
 int
 ipaddr_sprintf(char *buf, uint8_t buf_len, const uip_ipaddr_t *addr)
@@ -539,105 +489,19 @@ subscribe(void)
     DBG("APP - Tried to subscribe but command queue was full!\n");
   }
 }
-
-/*---------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------*/
-/*SSN ONTOLOGY BLOCK*/
-
-//publish SSN-Ontology for AmbientLightSensor (ALS)
-static void ssn_als_publish(void){
-
-  char TEMPORARY_SSN_ALS_BUFFER[85];
-  strcpy(TEMPORARY_SSN_ALS_BUFFER,SSN_SENSOR_BUFFER);
-     
-  char replace1[32];
-  snprintf(replace1, 31, "measuredResult: %dLUX", als_sensor_value);
-  char search1[] = "measuredResultPHPH";
-  stringReplace(search1, replace1, TEMPORARY_SSN_ALS_BUFFER);
-  	  
-  char search2[] = "roomPHPH";
-  char replace2[] = "room1.02";
-  stringReplace(search2, replace2, TEMPORARY_SSN_ALS_BUFFER);
-   
-  char replace3[32];
-  snprintf(replace3, 31, "observation_%d", als_observation_counter);
-  char search3[] = "demoObservationPHPH";
-  stringReplace(search3, replace3, TEMPORARY_SSN_ALS_BUFFER);
-  als_observation_counter++;
-  
-  //publish SSN-Ontology for temperature sensor
-  mqtt_publish(&conn, NULL, SSN_ONTOLOGY_ALS, (uint8_t *)TEMPORARY_SSN_ALS_BUFFER,  
-              strlen(TEMPORARY_SSN_ALS_BUFFER), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
-}
-/*------------------------------------------------------------------------*/
-
-//publish SSN-Ontology for temperature sensor
-static void ssn_temp_publish(void){
-
-  char TEMPORARY_SSN_TEMPERATURE_BUFFER[85];
-  strcpy(TEMPORARY_SSN_TEMPERATURE_BUFFER,SSN_SENSOR_BUFFER);
-     
-  char replace1[32];
-  snprintf(replace1, 31, "measuredResult: %dC", temp_sensor_value);
-  char search1[] = "measuredResultPHPH";
-  stringReplace(search1, replace1, TEMPORARY_SSN_TEMPERATURE_BUFFER);
-  	  
-  char search2[] = "roomPHPH";
-  char replace2[] = "room1.02";
-  stringReplace(search2, replace2, TEMPORARY_SSN_TEMPERATURE_BUFFER);
-   
-  char replace3[32];
-  snprintf(replace3, 31, "observation_%d", temp_observation_counter);
-  char search3[] = "demoObservationPHPH";
-  stringReplace(search3, replace3, TEMPORARY_SSN_TEMPERATURE_BUFFER);
-  temp_observation_counter++;
-  
-  //publish SSN-Ontology for temperature sensor
-  mqtt_publish(&conn, NULL, SSN_ONTOLOGY_TEMP, (uint8_t *)TEMPORARY_SSN_TEMPERATURE_BUFFER,  
-              strlen(TEMPORARY_SSN_TEMPERATURE_BUFFER), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
-}
-/*------------------------------------------------------------------------*/
-//publish SSN-Ontology for voltage sensor
-static void ssn_volt_publish(void){
-
-  char TEMPORARY_SSN_VOLTAGE_BUFFER[85];
-  strcpy(TEMPORARY_SSN_VOLTAGE_BUFFER,SSN_SENSOR_BUFFER);
-     
-  char replace1[32];
-  snprintf(replace1, 31, "measuredResult: %dW", voltage_sensor_value);
-  char search1[] = "measuredResultPHPH";
-  stringReplace(search1, replace1, TEMPORARY_SSN_VOLTAGE_BUFFER);
-  	  
-  char search2[] = "roomPHPH";
-  char replace2[] = "room1.02";
-  stringReplace(search2, replace2, TEMPORARY_SSN_VOLTAGE_BUFFER);
-   
-  char replace3[32];
-  snprintf(replace3, 31, "observation_%d", volt_observation_counter);
-  char search3[] = "demoObservationPHPH";
-  stringReplace(search3, replace3, TEMPORARY_SSN_VOLTAGE_BUFFER);
-  volt_observation_counter++;
-  
-  //publish SSN-Ontology for voltage sensor
-  mqtt_publish(&conn, NULL, SSN_ONTOLOGY_VOLT, (uint8_t *)TEMPORARY_SSN_VOLTAGE_BUFFER,  
-              strlen(TEMPORARY_SSN_VOLTAGE_BUFFER), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
-}
 /*---------------------------------------------------------------------------*/
 
 static void
-publish_als(void)  //called from state_machine()
+publish(void)  //called from state_machine()
 {
   int len;
   int remaining = APP_BUFFER_SIZE;
 
   buf_ptr = app_buffer;
 
-  als_sensor_value = GET_VALUE_LIGHT;
-
   len = snprintf(buf_ptr, remaining,
                  "%d",
-                 als_sensor_value); //GET_VALUE_LIGHT //GET_TEMPERATURE //GET_VOLTAGE
+                 GET_VALUE_LIGHT); //GET_VALUE_LIGHT //GET_TEMPERATURE //GET_VOLTAGE
 
   if(len < 0 || len >= remaining) {
     printf("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
@@ -664,11 +528,9 @@ publish_temp(void)  //called from state_machine()
 
   buf_ptr = app_buffer;
 
-  temp_sensor_value = GET_TEMPERATURE;
-
   len = snprintf(buf_ptr, remaining,
                  "%d",
-                 temp_sensor_value); 
+                 GET_TEMPERATURE); 
 
   if(len < 0 || len >= remaining) {
     printf("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
@@ -681,7 +543,6 @@ publish_temp(void)  //called from state_machine()
 
   mqtt_publish(&conn, NULL, SENSOR_TEMP, (uint8_t *)app_buffer,  
                strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
-
 }
 
 
@@ -693,11 +554,9 @@ publish_voltage(void)  //called from state_machine()
 
   buf_ptr = app_buffer;
 
-  voltage_sensor_value = GET_VOLTAGE;
-
   len = snprintf(buf_ptr, remaining,
                  "%d",
-                 voltage_sensor_value); 
+                 GET_VOLTAGE); 
 
   if(len < 0 || len >= remaining) {
     printf("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
@@ -712,7 +571,7 @@ publish_voltage(void)  //called from state_machine()
                strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
 }
 
-/*---------------------------------------------------------------------------*/
+
 static void publish_select_button(void){
    if (select_button_counter == 0){
      mqtt_publish(&conn, NULL, SENSOR_SELECT_BUTTON, (uint8_t *)BUTTON_PAYLOAD_ON,  
@@ -730,7 +589,7 @@ static void publish_select_button(void){
      
 }
 
-  
+
 /*---------------------------------------------------------------------------*/
 static void
 connect_to_broker(void)
@@ -899,41 +758,21 @@ state_machine(void)
         state = STATE_PUBLISHING;
       } else {
         if (counter==0){
-          publish_als();
+          publish();
           counter++;
         }
         else {
           if (counter==1){
-            ssn_als_publish();
-            counter++;
-          }
-          else{
-            if (counter==2){
             publish_temp();
             counter++;
           }
-	        else {
-            if (counter==3){
-              ssn_temp_publish();
-              counter++;
-              } else{
-                  if (counter==4){
-                  publish_voltage();
-                  counter++;
-                }
-                else{
-                  if (counter==5){
-                    ssn_volt_publish();
-                    counter=0;
-                  }
-                  else{
-                    counter=0;
-                  }
-                }
-              }
-                
-            }	
-          }
+	  else {
+          if (counter==2){
+            publish_voltage();
+            counter=0;
+            } else
+               counter=0;
+          }	
         }
          
         //publish();    //PUBLISH FUNCTION IS CALLED HERE +++++++++++++++++++++++++++++++++++
