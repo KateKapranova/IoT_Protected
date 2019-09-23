@@ -62,7 +62,10 @@ value(int type)
   interim = adc_get(channel, SOC_ADC_ADCCON_REF_INT, SOC_ADC_ADCCON_DIV_512);
 
   GPIO_CLR_PIN(ADC_ALS_PWR_PORT_BASE, ADC_ALS_PWR_PIN_MASK);
-  res = interim * 0.023;
+  res = interim * 0.009;
+  if (res < 37){
+    res=0;	
+  } 
   return res;
 }
 /*---------------------------------------------------------------------------*/
